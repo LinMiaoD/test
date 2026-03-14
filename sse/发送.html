@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSE 消息发送页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+
+        .header {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-section {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+
+        button {
+            background: #28a745;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background: #218838;
+        }
+
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .broadcast-btn {
+            background: #dc3545;
+        }
+
+        .broadcast-btn:hover {
+            background: #c82333;
+        }
+
+        .example-btn {
+            background: #17a2b8;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .example-btn:hover {
+            background: #138496;
+        }
+
+        .result {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .result.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .result.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .tabs {
+            display: flex;
+            background: white;
+            border-radius: 8px 8px 0 0;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            background: #f8f9fa;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .tab.active {
+            background: white;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .tab-content {
+            display: none;
+            background: white;
+            padding: 20px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .json-preview {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            white-space: pre-wrap;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>SSE 消息发送页面</h1>
+        <p>通过此页面可以向指定用户发送消息或广播系统通知</p>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('individual')">发送给个人</button>
+        <button class="tab" onclick="showTab('broadcast')">广播消息</button>
+        <button class="tab" onclick="showTab('examples')">示例消息</button>
+    </div>
+
+    <div id="individual" class="tab-content active">
+        <h2>发送个人消息</h2>
+        <form onsubmit="sendIndividualMessage(event)">
+            <div class="form-group">
+                <label>目标用户ID:</label>
+                <input type="text" id="targetUserId" value="user123" required>
+            </div>
+            
+            <div class="form-group">
+                <label>事件名称:</label>
+                <select id="eventName">
+                    <option value="notification">notification</option>
+                    <option value="message">message</option>
+                    <option value="alert">alert</option>
+                    <option value="custom">自定义...</option>
+                </select>
+            </div>
+            
+            <div class="form-group" id="customEventGroup" style="display:none;">
+                <label>自定义事件名:</label>
+                <input type="text" id="customEventName">
+            </div>
+            
+            <div class="form-group">
+                <label>消息标题:</label>
+                <input type="text" id="messageTitle" value="测试通知">
+            </div>
+            
+            <div class="form-group">
+                <label>消息内容:</label>
+                <textarea id="messageContent" placeholder="请输入消息内容">这是一条测试消息</textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>消息类型:</label>
+                <select id="messageType">
+                    <option value="message">普通消息</option>
+                    <option value="exam">考试通知</option>
+                    <option value="system">系统通知</option>
+                </select>
+            </div>
+            
+            <button type="submit">发送消息</button>
+            
+            <div id="individualResult" class="result"></div>
+        </form>
+    </div>
+
+    <div id="broadcast" class="tab-content">
+        <h2>广播消息</h2>
+        <form onsubmit="sendBroadcastMessage(event)">
+            <div class="form-group">
+                <label>事件名称:</label>
+                <select id="broadcastEventName">
+                    <option value="notification">notification</option>
+                    <option value="announcement">announcement</option>
+                    <option value="alert">alert</option>
+                </select>
+            </div>
+            
+            <div class="form-group">
+                <label>广播标题:</label>
+                <input type="text" id="broadcastTitle" value="系统公告">
+            </div>
+            
+            <div class="form-group">
+                <label>广播内容:</label>
+                <textarea id="broadcastContent" placeholder="请输入广播内容">这是一条系统广播消息</textarea>
+            </div>
+            
+            <button type="submit" class="broadcast-btn">发送广播</button>
+            
+            <div id="broadcastResult" class="result"></div>
+        </form>
+    </div>
+
+    <div id="examples" class="tab-content">
+        <h2>快速发送示例消息</h2>
+        <p>点击下方按钮可以快速发送预设的示例消息：</p>
+        
+        <div style="margin: 20px 0;">
+            <button class="example-btn" onclick="sendExamNotification()">发送考试通知</button>
+            <button class="example-btn" onclick="sendSystemAnnouncement()">发送系统公告</button>
+            <button class="example-btn" onclick="sendMessageNotification()">发送消息通知</button>
+        </div>
+        
+        <div class="form-group">
+            <label>目标用户ID（个人消息用）:</label>
+            <input type="text" id="exampleUserId" value="user123">
+        </div>
+        
+        <div id="exampleResult" class="result"></div>
+    </div>
+
+    <script>
+        // 选项卡切换
+        function showTab(tabName) {
+            // 隐藏所有内容
+            const contents = document.querySelectorAll('.tab-content');
+            contents.forEach(content => content.classList.remove('active'));
+            
+            // 移除所有选项卡的激活状态
+            const tabs = document.querySelectorAll('.tab');
+            tabs.forEach(tab => tab.classList.remove('active'));
+            
+            // 显示目标内容和激活对应选项卡
+            document.getElementById(tabName).classList.add('active');
+            event.target.classList.add('active');
+        }
+
+        // 处理自定义事件名显示
+        document.getElementById('eventName').addEventListener('change', function() {
+            const customGroup = document.getElementById('customEventGroup');
+            if (this.value === 'custom') {
+                customGroup.style.display = 'block';
+            } else {
+                customGroup.style.display = 'none';
+            }
+        });
+
+        // 发送个人消息
+        async function sendIndividualMessage(event) {
+            event.preventDefault();
+            
+            const userId = document.getElementById('targetUserId').value;
+            const eventName = document.getElementById('eventName').value === 'custom' ? 
+                document.getElementById('customEventName').value : 
+                document.getElementById('eventName').value;
+            const title = document.getElementById('messageTitle').value;
+            const content = document.getElementById('messageContent').value;
+            const type = document.getElementById('messageType').value;
+            
+            const data = {
+                id: generateId(),
+                type: type,
+                title: title,
+                content: content,
+                timestamp: Date.now(),
+                data: {
+                    read: false,
+                    priority: 'normal'
+                }
+            };
+
+            const requestData = {
+                userId: userId,
+                eventName: eventName,
+                data: data
+            };
+
+            try {
+                const response = await fetch('/sse/test/send', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+                showResult('individualResult', response.ok, result.message || '发送成功');
+                
+            } catch (error) {
+                showResult('individualResult', false, '发送失败: ' + error.message);
+            }
+        }
+
+        // 发送广播消息
+        async function sendBroadcastMessage(event) {
+            event.preventDefault();
+            
+            const eventName = document.getElementById('broadcastEventName').value;
+            const title = document.getElementById('broadcastTitle').value;
+            const content = document.getElementById('broadcastContent').value;
+            
+            const data = {
+                id: generateId(),
+                type: 'system',
+                title: title,
+                content: content,
+                timestamp: Date.now(),
+                data: {
+                    priority: 'high',
+                    read: false
+                }
+            };
+
+            const requestData = {
+                eventName: eventName,
+                data: data
+            };
+
+            try {
+                const response = await fetch('/sse/test/broadcast', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const result = await response.json();
+                showResult('broadcastResult', response.ok, result.message || '广播成功');
+                
+            } catch (error) {
+                showResult('broadcastResult', false, '广播失败: ' + error.message);
+            }
+        }
+
+        // 发送考试通知示例
+        async function sendExamNotification() {
+            const userId = document.getElementById('exampleUserId').value;
+            
+            try {
+                const response = await fetch('/sse/example/send-exam-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        userId: userId,
+                        examId: 'exam-001',
+                        examName: '期末考试',
+                        minutesBefore: 30
+                    })
+                });
+
+                const result = await response.json();
+                showResult('exampleResult', response.ok, result.message || '考试通知发送成功');
+                
+            } catch (error) {
+                showResult('exampleResult', false, '发送失败: ' + error.message);
+            }
+        }
+
+        // 发送系统公告示例
+        async function sendSystemAnnouncement() {
+            try {
+                const response = await fetch('/sse/example/send-system-announcement', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        title: '系统维护通知',
+                        content: '系统将在今晚22:00-24:00进行维护，期间服务可能不可用，请提前做好准备。'
+                    })
+                });
+
+                const result = await response.json();
+                showResult('exampleResult', response.ok, result.message || '系统公告发送成功');
+                
+            } catch (error) {
+                showResult('exampleResult', false, '发送失败: ' + error.message);
+            }
+        }
+
+        // 发送消息通知示例
+        async function sendMessageNotification() {
+            const userId = document.getElementById('exampleUserId').value;
+            
+            try {
+                const response = await fetch('/sse/example/send-message-notification', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        userId: userId,
+                        fromUser: '张老师',
+                        messageContent: '请查看最新的作业要求，截止时间是明天下午5点。'
+                    })
+                });
+
+                const result = await response.json();
+                showResult('exampleResult', response.ok, result.message || '消息通知发送成功');
+                
+            } catch (error) {
+                showResult('exampleResult', false, '发送失败: ' + error.message);
+            }
+        }
+
+        // 显示结果
+        function showResult(elementId, success, message) {
+            const resultElement = document.getElementById(elementId);
+            resultElement.className = success ? 'result success' : 'result error';
+            resultElement.textContent = message;
+            resultElement.style.display = 'block';
+            
+            // 3秒后自动隐藏
+            setTimeout(() => {
+                resultElement.style.display = 'none';
+            }, 3000);
+        }
+
+        // 生成唯一ID
+        function generateId() {
+            return 'msg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        }
+    </script>
+</body>
+</html>

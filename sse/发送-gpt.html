@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>SSE 消息发送 & 连接测试</title>
+    <!-- 用于 SSE 自定义请求头（Authorization: <token>），原生 EventSource 不支持自定义头 -->
+    <script src="https://unpkg.com/event-source-polyfill/dist/event-source-polyfill.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 960px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        .card { background: #fff; border-radius: 8px; padding: 16px; box-shadow: 0 2px 4px rgba(0,0,0,.08); margin-bottom: 16px; }
+        h1 { margin: 0 0 8px; }
+        .row { display: grid; grid-template-columns: 160px 1fr; gap: 10px; align-items: center; margin-bottom: 10px; }
+        input, textarea, select { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; box-sizing: border-box; }
+        textarea { height: 100px; resize: vertical; }
+        button { background: #28a745; color: #fff; padding: 10px 16px; border: 0; border-radius: 6px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #218838; }
+        button.secondary { background: #17a2b8; } button.secondary:hover { background: #138496; }
+        button.danger { background: #dc3545; } button.danger:hover { background: #c82333; }
+        .flex { display: flex; gap: 8px; flex-wrap: wrap; }
+        .result { margin-top: 10px; padding: 10px; border-radius: 6px; display: none; }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 12px; margin-left: 8px; }
+        .ok { background:#2e7d32; color:#fff; } .bad { background:#c62828; color:#fff; }
+        #log { background:#111; color:#ddd; padding:10px; border-radius:8px; height:220px; overflow:auto; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; font-size: 12px; }
+        .tabs { display:flex; gap:0; overflow:hidden; border-radius:8px 8px 0 0; background:#fff; box-shadow: 0 2px 4px rgba(0,0,0,.08); }
+        .tab { flex:1; padding:12px; border:0; background:#f8f9fa; cursor:pointer; font-size:14px; }
+        .tab.active { background:#fff; font-weight:700; color:#007bff; }
+        .tab-content { display:none; }
+        .tab-content.active { display:block; }
+        .hint { color:#666; font-size:12px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h1>SSE 消息发送 & 连接测试</h1>
+        <div class="row">
+            <label>后端 Base URL</label>
+            <input id="baseUrl" value="http://localhost:8080" />
+        </div>
+        <div class="row">
+            <label>JWT Token</label>
+            <input id="token" placeholder="粘贴你的 Token（不带 Bearer）"
+                   value="token:eyJhbGciOiJIUzI1NiJ9.eyJqdGkiOiIxNzdjMGQwYWFmZWE0ODEyYWZhOWVkMDE3MjUxODYzMiIsInN1YiI6ImFkbWluIiwidG9rZW5fdHlwZSI6ImFjY2Vzc190b2tlbiIsImlzcyI6InNnIiwiaWF0IjoxNzU0ODczNTQ4LCJleHAiOjE3NTQ5MDIzNDgsInJvbGVfbmFtZSI6IueuoeeQhiIsImFjY291bnRfdHlwZSI6InRlYWNoZXIiLCJ1c2VyX2lkIjoiNjEiLCJyb2xlX2lkIjoiNzUiLCJ1c2VyX25hbWUiOiJhZG1pbiIsImVudGVycHJpc2VfaWQiOiIxNjIiLCJhY2NvdW50IjoiYWRtaW4ifQ.U_31DcEt2mg6Ld1ysXN1QQD2CEK8gpusSfOMZyAGqEU" />
+        </div>
+        <div class="row">
+            <label>SSE 路径</label>
+            <input id="ssePath" value="/sse/test/notifications" />
+        </div>
+        <div class="row">
+            <label>连接状态</label>
+            <div><span id="state" class="badge bad">未连接</span></div>
+        </div>
+        <div class="flex">
+            <button id="btnConnect" class="secondary">连接 SSE（Authorization: <token>）</button>
+            <button id="btnDisconnect" class="danger" disabled>断开 SSE</button>
+            <button id="btnPerm">申请系统通知权限</button>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('individual', event)">发送给个人</button>
+        <button class="tab" onclick="showTab('broadcast', event)">广播消息</button>
+        <button class="tab" onclick="showTab('examples', event)">示例消息</button>
+    </div>
+
+    <div class="card tab-content active" id="individual">
+        <h2>发送个人消息</h2>
+        <form id="formIndividual">
+            <div class="row"><label>目标用户ID</label><input id="targetUserId" value="user123" required /></div>
+            <div class="row">
+                <label>事件名称</label>
+                <select id="eventName">
+                    <option value="notification">notification</option>
+                    <option value="message">message</option>
+                    <option value="alert">alert</option>
+                    <option value="custom">自定义...</option>
+                </select>
+            </div>
+            <div class="row" id="customEventRow" style="display:none;">
+                <label>自定义事件名</label><input id="customEventName" />
+            </div>
+            <div class="row"><label>消息标题</label><input id="messageTitle" value="测试通知" /></div>
+            <div class="row"><label>消息内容</label><textarea id="messageContent">这是一条测试消息</textarea></div>
+            <div class="row">
+                <label>消息类型</label>
+                <select id="messageType">
+                    <option value="message">普通消息</option>
+                    <option value="exam">考试通知</option>
+                    <option value="system">系统通知</option>
+                </select>
+            </div>
+            <div class="flex">
+                <button type="submit">发送消息</button>
+            </div>
+            <div id="individualResult" class="result"></div>
+        </form>
+    </div>
+
+    <div class="card tab-content" id="broadcast">
+        <h2>广播消息</h2>
+        <form id="formBroadcast">
+            <div class="row"><label>事件名称</label>
+                <select id="broadcastEventName">
+                    <option value="notification">notification</option>
+                    <option value="announcement">announcement</option>
+                    <option value="alert">alert</option>
+                </select>
+            </div>
+            <div class="row"><label>广播标题</label><input id="broadcastTitle" value="系统公告"/></div>
+            <div class="row"><label>广播内容</label><textarea id="broadcastContent">这是一条系统广播消息</textarea></div>
+            <div class="flex"><button type="submit" class="danger">发送广播</button></div>
+            <div id="broadcastResult" class="result"></div>
+        </form>
+    </div>
+
+    <div class="card tab-content" id="examples">
+        <h2>快速发送示例消息</h2>
+        <div class="hint">以下按钮调用你后端的示例接口。</div>
+        <div class="row"><label>目标用户ID（用于点对点示例）</label><input id="exampleUserId" value="user123"/></div>
+        <div class="flex" style="margin:8px 0;">
+            <button class="secondary" id="btnExam">发送考试通知</button>
+            <button class="secondary" id="btnAnnouncement">发送系统公告</button>
+            <button class="secondary" id="btnMessage">发送消息通知</button>
+        </div>
+        <div id="exampleResult" class="result"></div>
+    </div>
+
+    <div class="card">
+        <h3>SSE 收到的消息</h3>
+        <div id="log"></div>
+    </div>
+
+<script>
+    // ========== 工具 ==========
+    const $ = id => document.getElementById(id);
+    const buildUrl = (path) => {
+        const base = $('baseUrl').value.replace(/\/+$/,'');
+        if (!path.startsWith('/')) path = '/' + path;
+        return base + path;
+    };
+    const authHeaders = () => {
+        const token = $('token').value.trim();
+        return token ? { 'Authorization': token } : {}; // 注意：不带 Bearer
+    };
+    const log = (msg) => {
+        const el = $('log');
+        const line = document.createElement('div');
+        line.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+        el.prepend(line);
+    };
+    const setState = (ok) => {
+        const el = $('state');
+        el.textContent = ok ? '已连接' : '未连接';
+        el.className = `badge ${ok ? 'ok':'bad'}`;
+        $('btnDisconnect').disabled = !ok;
+    };
+    const showResult = (id, ok, msg) => {
+        const el = $(id);
+        el.className = `result ${ok ? 'success' : 'error'}`;
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(()=>{ el.style.display='none' }, 3000);
+    };
+
+    // ========== 连接 SSE（ Authorization: <token> ） ==========
+    let es = null;
+    async function connectSSE() {
+        const path = $('ssePath').value || '/sse/test/notifications';
+        const url = new URL(buildUrl(path));
+        const token = $('token').value.trim();
+        if (!token) { alert('请先填写 Token'); return; }
+
+        try {
+            // 用 polyfill 才能带自定义请求头
+            if (!window.EventSourcePolyfill) {
+                alert('EventSourcePolyfill 未加载');
+                return;
+            }
+            if (es) { es.close(); es = null; }
+            es = new window.EventSourcePolyfill(url.toString(), {
+                withCredentials: true,
+                headers: authHeaders()
+            });
+
+            es.onopen = () => { setState(true); log('✅ SSE 连接已建立'); };
+            es.onerror = (e) => { setState(false); log('❌ SSE 连接错误/关闭：' + JSON.stringify(e)); };
+            es.onmessage = (evt) => { log('📩 默认消息：' + evt.data); notifyIfPerm(evt.data); };
+            es.addEventListener('notification', (evt) => { log('🔔 通知：' + evt.data); notifyIfPerm(evt.data); });
+        } catch (e) {
+            setState(false);
+            log('❌ 创建连接失败：' + (e?.message || e));
+        }
+    }
+    function disconnectSSE() { if (es) { es.close(); es=null; } setState(false); log('🛑 已断开连接'); }
+
+    // ========== 系统通知权限 ==========
+    async function requestPerm() {
+        if ('Notification' in window && Notification.permission === 'default') {
+            await Notification.requestPermission();
+        }
+    }
+    function notifyIfPerm(data) {
+        try {
+            const obj = JSON.parse(data);
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(obj.title || '通知', { body: obj.content || '', tag: obj.id || '' });
+            }
+        } catch(_) {}
+    }
+
+    // ========== 发送接口（会带 Authorization: <token>） ==========
+    async function postJSON(path, bodyObj, resultId) {
+        try {
+            const res = await fetch(buildUrl(path), {
+                method: 'POST',
+                headers: { 'Content-Type':'application/json', ...authHeaders() },
+                body: JSON.stringify(bodyObj)
+            });
+            const j = await res.json();
+            showResult(resultId, res.ok, (j.message || j.msg || '成功'));
+        } catch (e) {
+            showResult(resultId, false, '请求失败：' + (e?.message || e));
+        }
+    }
+    async function postForm(path, formObj, resultId) {
+        try {
+            const res = await fetch(buildUrl(path), {
+                method: 'POST',
+                headers: { ...authHeaders() },
+                body: new URLSearchParams(formObj)
+            });
+            const j = await res.json();
+            showResult(resultId, res.ok, (j.message || j.msg || '成功'));
+        } catch (e) {
+            showResult(resultId, false, '请求失败：' + (e?.message || e));
+        }
+    }
+
+    // ========== 选项卡 & 表单逻辑 ==========
+    function showTab(name, ev){
+        document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+        ev.target.classList.add('active');
+        document.getElementById(name).classList.add('active');
+    }
+    $('eventName').addEventListener('change', function(){
+        $('customEventRow').style.display = (this.value === 'custom') ? 'grid' : 'none';
+    });
+
+    // 个人消息提交
+    $('formIndividual').addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const userId = $('targetUserId').value;
+        const eventVal = $('eventName').value === 'custom' ? $('customEventName').value : $('eventName').value;
+        const title = $('messageTitle').value;
+        const content = $('messageContent').value;
+        const type = $('messageType').value;
+
+        const payload = {
+            id: 'msg_' + Date.now(),
+            type, title, content, timestamp: Date.now(),
+            data: { read:false, priority:'normal' }
+        };
+        const req = { userId, eventName: eventVal, data: payload };
+        postJSON('/sse/test/send', req, 'individualResult');
+    });
+
+    // 广播提交
+    $('formBroadcast').addEventListener('submit', (e)=>{
+        e.preventDefault();
+        const eventName = $('broadcastEventName').value;
+        const title = $('broadcastTitle').value;
+        const content = $('broadcastContent').value;
+        const payload = {
+            id: 'msg_' + Date.now(),
+            type: 'system', title, content, timestamp: Date.now(),
+            data: { priority:'high', read:false }
+        };
+        const req = { eventName, data: payload };
+        postJSON('/sse/test/broadcast', req, 'broadcastResult');
+    });
+
+    // 示例按钮
+    $('btnExam').onclick = ()=> postForm('/sse/example/send-exam-notification', {
+        userId: $('exampleUserId').value,
+        examId: 'exam-001',
+        examName: '期末考试',
+        minutesBefore: 30
+    }, 'exampleResult');
+
+    $('btnAnnouncement').onclick = ()=> postForm('/sse/example/send-system-announcement', {
+        title: '系统维护通知',
+        content: '今晚 23:30-24:00 维护，可能短暂不可用'
+    }, 'exampleResult');
+
+    $('btnMessage').onclick = ()=> postForm('/sse/example/send-message-notification', {
+        userId: $('exampleUserId').value,
+        fromUser: '张老师',
+        messageContent: '请查看最新作业，截止明天 17:00'
+    }, 'exampleResult');
+
+    // 按钮事件
+    $('btnConnect').onclick = async ()=>{ await requestPerm(); connectSSE(); };
+    $('btnDisconnect').onclick = disconnectSSE;
+    $('btnPerm').onclick = requestPerm;
+</script>
+</body>
+</html>

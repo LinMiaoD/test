@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>SSE 通知测试（纯HTML）</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; padding:20px; }
+    .status { margin-bottom: 12px; }
+    .connected { color: #2e7d32; }
+    .disconnected { color: #c62828; }
+    .msg { border:1px solid #eee; border-left:4px solid #42b983; padding:10px; margin:8px 0; border-radius:6px; }
+    .msg .meta { font-size:12px; color:#666; display:flex; justify-content:space-between; }
+    .controls > * { margin-right: 6px; }
+  </style>
+</head>
+<body>
+  <h2>SSE 通知测试（快速版）</h2>
+  <div class="status">
+    状态：<span id="status" class="disconnected">未连接</span>
+    <span id="error" style="color:#c62828;margin-left:8px;"></span>
+  </div>
+  <div class="controls">
+    <button id="btnConnect">连接</button>
+    <button id="btnDisconnect">断开</button>
+    <button id="btnClear">清空</button>
+  </div>
+  <div id="list"></div>
+
+  <script type="module">
+    const SSE_URL = '/sse/test/notifications'; // 改成你的后端SSE地址
+    let es = null;
+
+    const $ = id => document.getElementById(id);
+    const statusEl = $('status');
+    const errEl = $('error');
+    const listEl = $('list');
+
+    function addMsg(m) {
+      const d = document.createElement('div');
+      d.className = 'msg';
+      d.innerHTML = `
+        <div class="meta">
+          <b>${m.type || 'notification'}</b>
+          <span>${new Date(m.timestamp || Date.now()).toLocaleString()}</span>
+        </div>
+        <div style="margin-top:6px;"><b>${m.title || ''}</b></div>
+        <div>${m.content || ''}</div>
+      `;
+      listEl.prepend(d);
+      if ('Notification' in window && Notification.permission === 'granted') {
+        new Notification(m.title || '通知', { body: m.content || '', tag: m.id || '' });
+      }
+    }
+
+    function connect() {
+      if (es) es.close();
+      errEl.textContent = '';
+      const url = new URL(SSE_URL, location.origin);
+      const token = localStorage.getItem('token');
+      if (token) url.searchParams.set('token', token);
+      es = new EventSource(url.toString(), { withCredentials: true });
+
+      es.onopen = () => { statusEl.textContent = '已连接'; statusEl.className = 'connected'; };
+      es.onerror = (e) => { statusEl.textContent = '未连接'; statusEl.className = 'disconnected'; errEl.textContent = '连接错误或已关闭'; };
+      es.onmessage = (evt) => {
+        try { addMsg(JSON.parse(evt.data)); } catch { /* ignore */ }
+      };
+      es.addEventListener('notification', (evt) => {
+        try { addMsg(JSON.parse(evt.data)); } catch { /* ignore */ }
+      });
+    }
+
+    function disconnect() { if (es) { es.close(); es = null; } statusEl.textContent='未连接'; statusEl.className='disconnected'; }
+    function clearAll() { listEl.innerHTML=''; }
+
+    document.getElementById('btnConnect').onclick = async () => {
+      if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+      connect();
+    };
+    document.getElementById('btnDisconnect').onclick = disconnect;
+    document.getElementById('btnClear').onclick = clearAll;
+  </script>
+</body>
+</html>

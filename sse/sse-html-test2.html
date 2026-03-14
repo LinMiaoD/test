@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>SSE 测试页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+        #log {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 300px;
+            overflow-y: auto;
+            background: #f9f9f9;
+        }
+        .btn {
+            margin: 5px;
+            padding: 8px 12px;
+            background-color: #4caf50;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+        .btn:hover {
+            background-color: #45a049;
+        }
+        input {
+            margin: 3px;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+<h1>SSE 测试页面</h1>
+
+<div>
+    <label>用户ID：</label>
+    <input type="text" id="userId" value="user1">
+    <button class="btn" onclick="connectSSE()">连接 SSE</button>
+</div>
+
+<hr>
+
+<div>
+    <h3>发送考试通知</h3>
+    <input type="text" id="examId" placeholder="考试ID" value="exam123">
+    <input type="text" id="examName" placeholder="考试名称" value="数学期末考试">
+    <input type="number" id="minutesBefore" placeholder="提前分钟数" value="30">
+    <button class="btn" onclick="sendExamNotification()">发送考试通知</button>
+</div>
+
+<div>
+    <h3>发送系统公告</h3>
+    <input type="text" id="announcementTitle" placeholder="公告标题" value="系统维护">
+    <input type="text" id="announcementContent" placeholder="公告内容" value="今晚12点进行系统维护，请保存好您的数据。">
+    <button class="btn" onclick="sendSystemAnnouncement()">发送系统公告</button>
+</div>
+
+<div>
+    <h3>发送消息通知</h3>
+    <input type="text" id="fromUser" placeholder="发送人" value="管理员">
+    <input type="text" id="messageContent" placeholder="消息内容" value="请及时查看考试安排">
+    <button class="btn" onclick="sendMessageNotification()">发送消息通知</button>
+</div>
+
+<hr>
+
+<h3>日志输出：</h3>
+<div id="log"></div>
+
+<script>
+    let eventSource = null;
+
+    function logMessage(msg) {
+        const logDiv = document.getElementById("log");
+        logDiv.innerHTML += `<div>${new Date().toLocaleTimeString()} - ${msg}</div>`;
+        logDiv.scrollTop = logDiv.scrollHeight;
+    }
+
+    function connectSSE() {
+        const userId = document.getElementById("userId").value;
+        if (!userId) {
+            alert("请输入用户ID");
+            return;
+        }
+        if (eventSource) {
+            eventSource.close();
+        }
+        const url = `http://localhost:8080/sse/test/connect?userId=${encodeURIComponent(userId)}`;
+        eventSource = new EventSource(url);
+
+        eventSource.onopen = function () {
+            logMessage("✅ SSE 连接已建立");
+        };
+        eventSource.onmessage = function (event) {
+            logMessage(`📩 默认消息: ${event.data}`);
+        };
+        eventSource.addEventListener("notification", function (event) {
+            logMessage(`🔔 通知事件: ${event.data}`);
+        });
+        eventSource.onerror = function (err) {
+            logMessage("❌ 连接出错: " + JSON.stringify(err));
+        };
+    }
+
+    function sendExamNotification() {
+        const userId = document.getElementById("userId").value;
+        const examId = document.getElementById("examId").value;
+        const examName = document.getElementById("examName").value;
+        const minutesBefore = document.getElementById("minutesBefore").value;
+
+        fetch(`http://localhost:8080/sse/example/send-exam-notification?userId=${encodeURIComponent(userId)}&examId=${encodeURIComponent(examId)}&examName=${encodeURIComponent(examName)}&minutesBefore=${encodeURIComponent(minutesBefore)}`, {
+            method: 'POST'
+        }).then(res => res.json()).then(data => {
+            logMessage("📤 考试通知发送结果: " + JSON.stringify(data));
+        });
+    }
+
+    function sendSystemAnnouncement() {
+        const title = document.getElementById("announcementTitle").value;
+        const content = document.getElementById("announcementContent").value;
+
+        fetch(`http://localhost:8080/sse/example/send-system-announcement?title=${encodeURIComponent(title)}&content=${encodeURIComponent(content)}`, {
+            method: 'POST'
+        }).then(res => res.json()).then(data => {
+            logMessage("📤 系统公告发送结果: " + JSON.stringify(data));
+        });
+    }
+
+    function sendMessageNotification() {
+        const userId = document.getElementById("userId").value;
+        const fromUser = document.getElementById("fromUser").value;
+        const messageContent = document.getElementById("messageContent").value;
+
+        fetch(`http://localhost:8080/sse/example/send-message-notification?userId=${encodeURIComponent(userId)}&fromUser=${encodeURIComponent(fromUser)}&messageContent=${encodeURIComponent(messageContent)}`, {
+            method: 'POST'
+        }).then(res => res.json()).then(data => {
+            logMessage("📤 消息通知发送结果: " + JSON.stringify(data));
+        });
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,98 @@
+# ImageMagick Web服务配置文件
+server:
+  port: 8080
+  servlet:
+    context-path: /
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 100MB
+      file-size-threshold: 2MB
+      location: uploads/
+  tomcat:
+    max-swallow-size: 100MB
+
+spring:
+  application:
+    name: imagemagick-web-service
+  
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 50MB
+      max-request-size: 100MB
+      file-size-threshold: 2MB
+      location: uploads/
+      resolve-lazily: false
+  
+  web:
+    resources:
+      static-locations: classpath:/static/,file:output/
+      cache:
+        period: 3600
+        cachecontrol:
+          max-age: 3600
+          cache-public: true
+  
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+# 日志配置
+logging:
+  level:
+    com.imagemagick.webservice: INFO
+    root: INFO
+    org.springframework.web.multipart: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/imagemagick-web-service.log
+    max-size: 100MB
+    max-history: 30
+
+# 监控配置
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+      base-path: /actuator
+  endpoint:
+    health:
+      show-details: always
+  info:
+    env:
+      enabled: true
+
+# 自定义配置
+imagemagick:
+  # ImageMagick命令超时时间(秒)
+  command-timeout: 300
+  
+  # 支持的图片格式
+  supported-formats: jpg,jpeg,png,gif,webp,bmp,tiff,svg
+  
+  # 文件存储配置
+  upload-dir: uploads
+  output-dir: output
+  
+  # 文件大小限制
+  max-file-size: 52428800  # 50MB
+  
+  # 批量处理最大文件数
+  max-batch-files: 10
+  
+  # 自动清理临时文件(分钟)
+  cleanup-interval: 60
+
+# 应用信息
+info:
+  app:
+    name: ImageMagick Web Service
+    description: Professional online image processing service
+    version: 1.0.0
+    encoding: UTF-8
+    java:
+      version: 1.8

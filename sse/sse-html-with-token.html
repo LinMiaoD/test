@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <title>SSE JWT 测试</title>
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+<body>
+<div id="app">
+  <h2>SSE JWT Token 测试</h2>
+
+  <div>
+    <label>后端地址: 
+      <input v-model="baseUrl" placeholder="http://localhost:8080" style="width:250px;">
+    </label>
+  </div>
+
+  <div>
+    <label>JWT Token: 
+      <input v-model="token" placeholder="粘贴你的 Token" style="width:300px;">
+    </label>
+  </div>
+
+  <div style="margin-top:10px;">
+    <button @click="connectSSE" :disabled="connected">连接 SSE</button>
+    <button @click="disconnectSSE" :disabled="!connected">断开 SSE</button>
+  </div>
+
+  <h3>连接状态: <span :style="{color: connected ? 'green' : 'red'}">{{ connected ? '已连接' : '未连接' }}</span></h3>
+
+  <h3>消息日志:</h3>
+  <div style="border:1px solid #ccc; height:200px; overflow:auto; padding:5px; font-family: monospace;">
+    <div v-for="(msg, idx) in messages" :key="idx">
+      {{ msg }}
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createApp, ref } from "vue";
+
+createApp({
+  setup() {
+    const baseUrl = ref("http://localhost:8080");
+    const token = ref("");
+    const connected = ref(false);
+    const messages = ref([]);
+    let eventSource = null;
+
+    const connectSSE = () => {
+      if (!token.value) {
+        alert("请先输入 JWT Token");
+        return;
+      }
+
+      // 这里使用 EventSourcePolyfill 以支持自定义 Header（原生 EventSource 不支持）
+      import('https://cdn.jsdelivr.net/npm/event-source-polyfill@1.0.31/dist/eventsource.min.js')
+        .then(() => {
+          eventSource = new EventSourcePolyfill(`${baseUrl.value}/sse/connect`, {
+            headers: {
+              "Authorization": token.value  // 不带 Bearer
+            },
+            withCredentials: true
+          });
+
+          eventSource.onopen = () => {
+            connected.value = true;
+            messages.value.unshift(`[连接成功] ${new Date().toLocaleString()}`);
+          };
+
+          eventSource.onmessage = (e) => {
+            messages.value.unshift(`[默认消息] ${e.data}`);
+          };
+
+          eventSource.addEventListener("notification", (e) => {
+            messages.value.unshift(`[notification] ${e.data}`);
+          });
+
+          eventSource.onerror = (e) => {
+            connected.value = false;
+            messages.value.unshift(`[错误] ${JSON.stringify(e)}`);
+            eventSource.close();
+          };
+        });
+    };
+
+    const disconnectSSE = () => {
+      if (eventSource) {
+        eventSource.close();
+        connected.value = false;
+        messages.value.unshift(`[已断开] ${new Date().toLocaleString()}`);
+      }
+    };
+
+    return {
+      baseUrl,
+      token,
+      connected,
+      messages,
+      connectSSE,
+      disconnectSSE
+    };
+  }
+}).mount("#app");
+</script>
+</body>
+</html>
