@@ -1,0 +1,62 @@
+标题: 
+批准: 
+年月日: 
+塔台呼号: 
+天亮时刻: 
+定向台呼号: 
+日出时刻: 
+指挥所呼号: 
+日没时刻: 
+敌我识别信号: 
+天黑时刻: 
+备注: 
+飞行指挥员: 
+塔台飞行管制员: 
+航空军医: 
+
+
+今日工作：
+1. 甲方跟新系统，以及使用测试，并添加导入提示信息；
+2. 优化11b的添加映射关系，并推送hsim
+3. 配合处理总线解析测试事宜；
+
+
+今日工作：
+1、根据接口文档对接总线动态库以及相关方法；
+2、完善上传总线后绑定配置文件，解析下总线；
+3、根据线上环境测试总线解析，并完善；
+4. 办公领导日程安排根据要求进行调整；
+
+
+
+当速度为空的情况，飞机的高度存在跳变，乱转向情况，是否保留地面姿态锁定
+
+采样率不同的机型是不同，有的是8 有的是16；
+
+KEYWORD_RULES应该根据机型处理下，
+    // 速度类 // 角度类 // 横滚    // 航向 // 高度 // 经纬度
+    // KEYWORD_RULES = {"aircraft_type"："","paramType":"","keyword"：[]}
+	
+	
+开关量、时间、经纬度、高度、航向、俯仰、横滚、速度类、角度类
+
+
+org.springjmis.flightsight.service.impl.FileImportPipelineExecutor#uploadToMinio
+元数influxdb不用上传到minio中了，需要上传到 influxdb 中，表名的规则是 flight_plan表中的"raw_"+plan_number；若数据为空则为null,保证数据类存在，写入数据参考flight_parameter_metadata 需要用param_name_en字段作为influxdb的表中字段名
+flight_plan 表中的csv_path 改为存储是influxdb的表名（即"raw_"+plan_number）
+以及接口plan/cleaning-compare 的调用也是从influxdb查询原始数据，注意：保持原数据结构输出
+
+
+hsimfar 修改意见：
+一：添加一个模块“规则验证”仅用来验证动作的准确性，
+1. 在未点击动作识别前添加动作的框显示不完整；
+2. 动作弹框应该靠近时间轴和添加修改动作的上方；
+3. 
+
+
+
+原始数据来源：应该用 stage1Result.getCsvPath()；
+还是 InfluxDB 也需要存两份数据（原始和清洗后），清洗后的数据已经存了，只需要存getCsvPath的飞参数据；
+
+
+

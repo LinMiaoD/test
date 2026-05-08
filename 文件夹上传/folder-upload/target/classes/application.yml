@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 500MB
+      max-request-size: 2GB
+      file-size-threshold: 10MB
+
+upload:
+  # 上传根目录，按需修改
+  root-path: /tmp/uploads
+  # 单次请求最大并发文件数
+  max-concurrent: 5

@@ -1,0 +1,1 @@
+import{aj as n}from"./index-Be-6q_ns.js";async function s(){const{data:t}=await n.get("/units");return t}async function e(t){const{data:a}=await n.post("/units",t);return a}async function c(t,a){await n.put(`/units/${t}`,a)}async function u(t){await n.delete(`/units/${t}`)}export{e as c,u as d,s as g,c as u};

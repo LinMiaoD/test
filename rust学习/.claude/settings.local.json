@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd C:\\\\Users\\\\Administrator\\\\Desktop\\\\学习资料\\\\learning-notes-programming\\\\rust学习:*)",
+      "Bash(cmd.exe:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(python3:*)",
+      "Bash(python:*)",
+      "Bash(dir:*)",
+      "Bash(del:*)",
+      "Bash(cd \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\学习资料\\\\learning-notes-programming\\\\rust学习\\\\2_所有权与借用\\\\2_1_所有权规则\" && cargo build 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\学习资料\\\\learning-notes-programming\\\\rust学习\\\\2_所有权与借用\\\\2_2_引用与借用\" && cargo build 2>&1)",
+      "Bash(cd \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\学习资料\\\\learning-notes-programming\\\\rust学习\\\\2_所有权与借用\\\\2_3_生命周期\" && cargo build 2>&1)",
+      "Bash(cargo build:*)",
+      "Bash(which cargo && cargo --version 2>&1)",
+      "Bash(/c/Users/Administrator/.cargo/bin/cargo build:*)",
+      "Bash(/c/Users/Administrator/AppData/Local/Microsoft/WindowsApps/python3.exe:*)",
+      "Bash(cmd:*)",
+      "Bash(/c/Users/Administrator/Desktop/学习资料/learning-notes-programming/rust学习/delete_cargo_toml.py:*)",
+      "Bash(echo sh not found:*)",
+      "Bash(head:*)",
+      "Bash(echo:*)",
+      "Bash(cd:*)",
+      "Bash(cargo run:*)"
+    ]
+  }
+}

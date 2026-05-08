@@ -1,0 +1,1 @@
+const a={tileUrl:"http://192.168.0.101:884/wgs84-yx",terrainUrl:"http://192.168.2.237:8888/hamidixing/"};let n=null;async function o(){if(n)return n;try{const t=await fetch("/map-config.json");if(t.ok)return n=await t.json(),n}catch(t){console.warn("加载 map-config.json 失败，使用默认配置",t)}return n=a,n}export{o as l};

@@ -1,0 +1,35 @@
+server:
+  port: 8080
+
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 200MB
+      max-request-size: 500MB
+      file-size-threshold: 5MB
+
+# MinIO 配置 —— 按实际环境修改
+minio:
+  endpoint: http://localhost:9000
+  access-key: minioadmin
+  secret-key: minioadmin
+  bucket: folder-upload
+
+# 上传业务配置
+upload:
+  # 单文件最大字节数 (100MB)
+  max-file-size: 104857600
+  # 黑名单扩展名（不允许上传）
+  forbidden-extensions:
+    - exe
+    - bat
+    - cmd
+    - sh
+    - ps1
+    - jar
+    - war
+    - php
+    - jsp
+  # OSS 中的根前缀，留空则直接用 sessionId
+  oss-prefix: uploads

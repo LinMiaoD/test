@@ -1,0 +1,6 @@
+{
+  "name": "AeroDebrief Pro",
+  "description": "Professional flight training debriefing system with 3D situational analysis, synchronized telemetry, and automated maneuver grading.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

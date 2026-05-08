@@ -1,0 +1,1 @@
+import o from"./html2canvas.esm-QH1iLAAe.js";async function s(n,t){const e=(await o(n,{backgroundColor:"#0a0e17",scale:2,useCORS:!0})).toDataURL("image/png"),a=document.createElement("a");a.href=e,a.download=t,a.click()}export{s as exportElementPng};

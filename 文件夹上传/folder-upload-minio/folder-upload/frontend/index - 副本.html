@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件夹上传 · MinIO</title>
+<!-- SparkMD5 用于前端计算文件 MD5 实现秒传 -->
+<script src="https://cdn.jsdelivr.net/npm/spark-md5@3.0.2/spark-md5.min.js"></script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap');
+
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#0b0e14;
+  --s1:#111520;
+  --s2:#171c28;
+  --bd:#1e2435;
+  --bd2:#28304a;
+  --tx:#bcc4d8;
+  --mu:#4a5370;
+  --ac:#3b82f6;
+  --ac2:#22d3ee;
+  --ok:#10b981;
+  --warn:#f59e0b;
+  --err:#ef4444;
+  --instant:#a855f7;
+  --mono:'JetBrains Mono',monospace;
+  --sans:'Noto Sans SC',sans-serif;
+}
+
+body{background:var(--bg);color:var(--tx);font-family:var(--sans);font-weight:300;min-height:100vh;display:flex;flex-direction:column}
+
+/* ── 顶栏 ── */
+header{
+  background:var(--s1);border-bottom:1px solid var(--bd);
+  height:48px;padding:0 24px;display:flex;align-items:center;gap:12px;flex-shrink:0;
+}
+.hlogo{width:8px;height:24px;background:var(--ac);border-radius:2px}
+.hlogo::after{content:'';display:block;width:8px;height:8px;background:var(--ac2);border-radius:2px;margin-top:3px}
+header h1{font-family:var(--mono);font-size:13px;font-weight:400;letter-spacing:.1em;color:var(--tx)}
+.htag{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--mu)}
+.hbadge{
+  font-family:var(--mono);font-size:10px;padding:2px 8px;border-radius:3px;
+  border:1px solid rgba(59,130,246,.3);color:var(--ac);
+}
+
+/* ── 布局 ── */
+.layout{flex:1;display:grid;grid-template-columns:400px 1fr;overflow:hidden}
+
+/* ── 左面板 ── */
+.lp{border-right:1px solid var(--bd);display:flex;flex-direction:column;gap:0;overflow-y:auto}
+.lp-sec{padding:20px;border-bottom:1px solid var(--bd)}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--mu);text-transform:uppercase;margin-bottom:12px}
+
+/* ── 拖拽区 ── */
+.dz{
+  border:1px dashed var(--bd2);border-radius:6px;padding:28px 20px;
+  text-align:center;cursor:pointer;transition:all .2s;position:relative;
+  background:rgba(59,130,246,.015);
+}
+.dz:hover,.dz.over{border-color:var(--ac);background:rgba(59,130,246,.06)}
+.dz input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.dz-icon{margin:0 auto 12px;width:40px;height:40px;display:grid;place-items:center;color:var(--ac);opacity:.6}
+.dz-t{font-size:13px;color:var(--tx);margin-bottom:5px}
+.dz-s{font-family:var(--mono);font-size:11px;color:var(--mu);line-height:1.7}
+
+/* ── 元信息 ── */
+.meta-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.mi{background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:10px 12px}
+.mi-k{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--mu);text-transform:uppercase;margin-bottom:4px}
+.mi-v{font-family:var(--mono);font-size:12px;color:var(--ac2)}
+
+/* ── 进度 ── */
+.prog-card{background:var(--s2);border:1px solid var(--bd);border-radius:4px;padding:14px}
+.prog-top{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
+.prog-lbl{font-size:12px;color:var(--tx)}
+.prog-num{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--ac)}
+.bar{height:3px;background:var(--bd2);border-radius:2px;overflow:hidden;margin-bottom:8px}
+.bar-f{height:100%;background:var(--ac);border-radius:2px;transition:width .25s ease;width:0}
+.bar-f.ok{background:var(--ok)}
+.prog-stats{font-family:var(--mono);font-size:11px;color:var(--mu);display:flex;gap:12px;flex-wrap:wrap}
+
+/* ── 文件列表 ── */
+.fl-wrap{border:1px solid var(--bd);border-radius:4px;max-height:260px;overflow-y:auto}
+.fl-wrap::-webkit-scrollbar{width:3px}
+.fl-wrap::-webkit-scrollbar-thumb{background:var(--bd2);border-radius:2px}
+
+.fi{
+  display:grid;grid-template-columns:8px 1fr 64px 90px;
+  gap:8px;align-items:center;padding:7px 10px;
+  border-bottom:1px solid var(--bd);font-size:11px;
+}
+.fi:last-child{border-bottom:none}
+.fi-dot{width:6px;height:6px;border-radius:50%;background:var(--bd2)}
+.fi-dot.up{background:var(--ac);animation:blink .7s infinite}
+.fi-dot.ok{background:var(--ok)}
+.fi-dot.instant{background:var(--instant)}
+.fi-dot.err{background:var(--err)}
+.fi-dot.skip{background:var(--warn)}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+.fi-name{font-family:var(--mono);font-size:11px;color:var(--tx);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fi-size{font-family:var(--mono);color:var(--mu);text-align:right}
+.fi-bar{height:2px;background:var(--bd2);border-radius:1px;overflow:hidden}
+.fi-bar-f{height:100%;background:var(--ac);width:0;transition:width .15s}
+.fi-bar-f.ok{background:var(--ok)}
+.fi-bar-f.instant{background:var(--instant)}
+.fi-bar-f.err{background:var(--err)}
+
+/* ── 按钮 ── */
+.btns{display:flex;gap:8px;padding:16px 20px;border-bottom:1px solid var(--bd)}
+.btn{height:36px;border:none;border-radius:4px;font-family:var(--mono);font-size:11px;letter-spacing:.06em;cursor:pointer;transition:all .15s;padding:0 16px}
+.btn-p{background:var(--ac);color:#fff;flex:1}
+.btn-p:hover{background:#5b92f7}
+.btn-p:disabled{background:var(--bd);color:var(--mu);cursor:not-allowed}
+.btn-g{background:transparent;color:var(--mu);border:1px solid var(--bd2)}
+.btn-g:hover{border-color:var(--ac);color:var(--ac)}
+.btn-g:disabled{opacity:.35;cursor:not-allowed}
+.btn-d{background:transparent;color:var(--err);border:1px solid rgba(239,68,68,.25)}
+.btn-d:hover{background:rgba(239,68,68,.08)}
+.btn-d:disabled{opacity:.35;cursor:not-allowed}
+
+/* ── 校验日志 ── */
+.vlog{max-height:100px;overflow-y:auto;font-family:var(--mono);font-size:11px;line-height:1.8}
+.vlog-item{color:var(--err);padding:1px 0}
+.vlog-item.warn{color:var(--warn)}
+
+/* ── 右面板 ── */
+.rp{padding:20px;overflow-y:auto}
+.tree-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--mu)}
+.tree-empty svg{opacity:.15}
+.tree-empty p{font-family:var(--mono);font-size:12px}
+
+/* ── 目录树 ── */
+.tree{font-family:var(--mono);font-size:12px}
+.tn-row{display:flex;align-items:center;gap:5px;padding:2px 4px;border-radius:3px;cursor:default;transition:background .1s}
+.tn-row:hover{background:rgba(59,130,246,.07)}
+.tn-name{color:var(--tx)}
+.tn-name.dir{color:var(--ac)}
+.tn-sz{margin-left:auto;font-size:10px;color:var(--mu);white-space:nowrap}
+.tn-inst{font-size:9px;color:var(--instant);margin-left:4px;letter-spacing:.06em}
+
+/* ── 图例 ── */
+.legend{display:flex;gap:16px;flex-wrap:wrap;padding:12px 20px;border-top:1px solid var(--bd);font-family:var(--mono);font-size:10px;color:var(--mu)}
+.leg{display:flex;align-items:center;gap:5px}
+.leg-dot{width:6px;height:6px;border-radius:50%}
+
+/* ── 状态栏 ── */
+.sb{border-top:1px solid var(--bd);background:var(--s1);height:26px;padding:0 16px;display:flex;align-items:center;gap:16px;font-family:var(--mono);font-size:10px;color:var(--mu);flex-shrink:0}
+.sb-dot{width:5px;height:5px;border-radius:50%;background:var(--ok)}
+
+/* ── Toast ── */
+.toasts{position:fixed;bottom:32px;right:20px;display:flex;flex-direction:column;gap:6px;z-index:999}
+.toast{
+  background:var(--s2);border:1px solid var(--bd2);border-radius:4px;
+  padding:8px 14px;font-family:var(--mono);font-size:11px;
+  animation:tin .2s ease;max-width:300px;
+}
+.toast.ok  {border-left:3px solid var(--ok);    color:var(--ok)}
+.toast.err {border-left:3px solid var(--err);   color:var(--err)}
+.toast.info{border-left:3px solid var(--ac);    color:var(--ac)}
+.toast.inst{border-left:3px solid var(--instant);color:var(--instant)}
+@keyframes tin{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:none}}
+
+/* ── URL 列表 ── */
+.url-list{max-height:200px;overflow-y:auto;border:1px solid var(--bd);border-radius:4px}
+.url-item{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--bd);font-size:11px}
+.url-item:last-child{border-bottom:none}
+.url-item input{flex:1;background:transparent;border:none;color:var(--tx);font-family:var(--mono);font-size:10px;outline:none}
+.url-item .copy-btn{background:transparent;border:1px solid var(--bd2);color:var(--mu);padding:2px 6px;border-radius:3px;font-size:10px;cursor:pointer;flex-shrink:0}
+.url-item .copy-btn:hover{border-color:var(--ac);color:var(--ac)}
+.url-count{font-family:var(--mono);font-size:10px;color:var(--mu);padding:4px 0}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="hlogo"></div>
+  <h1>FOLDER_UPLOAD</h1>
+  <span class="hbadge">MinIO</span>
+  <span class="htag">SpringBoot 2.4 · 断点续传 · 秒传</span>
+</header>
+
+<div class="layout">
+
+<!-- ──────────── 左面板 ──────────── -->
+<div class="lp">
+
+  <!-- 拖拽区 -->
+  <div class="lp-sec">
+    <div class="sec-lbl">选择文件夹</div>
+    <div class="dz" id="dz">
+      <input type="file" id="fi" webkitdirectory multiple>
+      <div class="dz-icon">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+          <path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/>
+        </svg>
+      </div>
+      <div class="dz-t">拖拽文件夹 / 点击选择</div>
+      <div class="dz-s">保留目录结构 · MD5秒传 · 黑名单校验<br>并发上传 · 取消可清理 OSS</div>
+    </div>
+  </div>
+
+  <!-- 元信息 -->
+  <div class="lp-sec" id="secMeta" style="display:none">
+    <div class="sec-lbl">文件夹信息</div>
+    <div class="meta-grid">
+      <div class="mi"><div class="mi-k">NAME</div><div class="mi-v" id="mName">—</div></div>
+      <div class="mi"><div class="mi-k">FILES</div><div class="mi-v" id="mCount">—</div></div>
+      <div class="mi"><div class="mi-k">SIZE</div><div class="mi-v" id="mSize">—</div></div>
+    </div>
+  </div>
+
+  <!-- 文件URL列表 -->
+  <div class="lp-sec" id="secUrls" style="display:none">
+    <div class="sec-lbl">文件URL列表 <button class="btn btn-g" id="bCopyAll" style="margin-left:8px;padding:2px 8px;font-size:10px">复制全部</button></div>
+    <div class="url-list" id="urlList"></div>
+  </div>
+
+  <!-- 校验日志 -->
+  <div class="lp-sec" id="secVlog" style="display:none">
+    <div class="sec-lbl">校验日志</div>
+    <div class="vlog" id="vlog"></div>
+  </div>
+
+  <!-- 按钮 -->
+  <div class="btns">
+    <button class="btn btn-p" id="bUp"  disabled>开始上传</button>
+    <button class="btn btn-g" id="bRst" disabled>重置</button>
+    <button class="btn btn-d" id="bCan" disabled>取消</button>
+  </div>
+
+  <!-- 整体进度 -->
+  <div class="lp-sec" id="secProg" style="display:none">
+    <div class="sec-lbl">整体进度</div>
+    <div class="prog-card">
+      <div class="prog-top">
+        <span class="prog-lbl" id="pgLbl">上传中</span>
+        <span class="prog-num" id="pgPct">0%</span>
+      </div>
+      <div class="bar"><div class="bar-f" id="pgBar"></div></div>
+      <div class="prog-stats">
+        <span id="pgDone">0</span>/<span id="pgTotal">0</span>
+        <span>·</span><span id="pgInst">0 秒传</span>
+        <span>·</span><span id="pgSpeed">—</span>
+        <span>·</span><span id="pgEta">—</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 文件列表 -->
+  <div class="lp-sec" id="secFL" style="display:none">
+    <div class="sec-lbl">文件列表</div>
+    <div class="fl-wrap" id="fl"></div>
+  </div>
+
+  <!-- 图例 -->
+  <div class="legend">
+    <span class="leg"><span class="leg-dot" style="background:var(--mu)"></span>等待</span>
+    <span class="leg"><span class="leg-dot" style="background:var(--ac)"></span>上传中</span>
+    <span class="leg"><span class="leg-dot" style="background:var(--ok)"></span>完成</span>
+    <span class="leg"><span class="leg-dot" style="background:var(--instant)"></span>秒传</span>
+    <span class="leg"><span class="leg-dot" style="background:var(--warn)"></span>已跳过</span>
+    <span class="leg"><span class="leg-dot" style="background:var(--err)"></span>失败</span>
+  </div>
+</div>
+
+<!-- ──────────── 右面板 ──────────── -->
+<div class="rp">
+  <div class="sec-lbl">OSS 目录树</div>
+  <div class="tree-empty" id="treeEmpty">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+    </svg>
+    <p>上传完成后显示 OSS 目录结构</p>
+  </div>
+  <div class="tree" id="treeRoot" style="display:none"></div>
+</div>
+
+</div>
+
+<!-- 状态栏 -->
+<div class="sb">
+  <div class="sb-dot"></div>
+  <span>http://localhost:8080</span>
+  <span id="sbSess">SESSION: —</span>
+  <span style="margin-left:auto" id="sbTime">—</span>
+</div>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════
+//  配置
+// ═══════════════════════════════════════════════════════════
+const API   = 'http://localhost:8080/api/upload';
+const CONC  = 4;       // 并发数
+// 黑名单（前端预校验，后端也校验）
+const FORBIDDEN_EXT = new Set(['exe','bat','cmd','sh','ps1','jar','war','php','jsp']);
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+
+// ═══════════════════════════════════════════════════════════
+//  状态
+// ═══════════════════════════════════════════════════════════
+let allFiles = [], validFiles = [], sessionId = null;
+let uploading = false, cancelled = false;
+let doneCount = 0, instantCount = 0, qIdx = 0;
+let startTime = 0, bytesDone = 0, totalBytes = 0;
+
+// ═══════════════════════════════════════════════════════════
+//  DOM
+// ═══════════════════════════════════════════════════════════
+const $dz    = document.getElementById('dz');
+const $fi    = document.getElementById('fi');
+const $bUp   = document.getElementById('bUp');
+const $bRst  = document.getElementById('bRst');
+const $bCan  = document.getElementById('bCan');
+const $fl    = document.getElementById('fl');
+const $sbSess= document.getElementById('sbSess');
+
+setInterval(() => document.getElementById('sbTime').textContent =
+  new Date().toLocaleTimeString('zh-CN',{hour12:false}), 1000);
+
+// ═══════════════════════════════════════════════════════════
+//  拖拽
+// ═══════════════════════════════════════════════════════════
+$dz.addEventListener('dragover', e => { e.preventDefault(); $dz.classList.add('over'); });
+$dz.addEventListener('dragleave', () => $dz.classList.remove('over'));
+$dz.addEventListener('drop', e => {
+  e.preventDefault(); $dz.classList.remove('over');
+  const items = [...e.dataTransfer.items];
+  collectDrop(items);
+});
+$fi.addEventListener('change', () => { allFiles = [...$fi.files]; onReady(); });
+
+async function collectDrop(items) {
+  const files = [];
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry && item.webkitGetAsEntry();
+    if (entry) await readEntry(entry, '', files);
+  }
+  if (files.length) { allFiles = files; onReady(); }
+}
+function readEntry(entry, path, files) {
+  return new Promise(res => {
+    if (entry.isFile) {
+      entry.file(f => {
+        f._rel = (path ? path + '/' : '') + f.name;
+        files.push(f); res();
+      });
+    } else {
+      const reader = entry.createReader();
+      const readAll = cb => reader.readEntries(async entries => {
+        if (!entries.length) return cb();
+        for (const e of entries) await readEntry(e, (path ? path + '/' : '') + entry.name, files);
+        readAll(cb);
+      });
+      readAll(res);
+    }
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  文件选择 → 前端校验
+// ═══════════════════════════════════════════════════════════
+function onReady() {
+  if (!allFiles.length) return;
+
+  const vlogEl = document.getElementById('vlog');
+  vlogEl.innerHTML = '';
+  validFiles = [];
+  const skipped = [];
+
+  for (const f of allFiles) {
+    const rel  = f.webkitRelativePath || f._rel || f.name;
+    const ext  = rel.split('.').pop().toLowerCase();
+    if (FORBIDDEN_EXT.has(ext)) {
+      skipped.push({rel, reason: '禁止类型 .' + ext});
+      continue;
+    }
+    if (f.size > MAX_FILE_SIZE) {
+      skipped.push({rel, reason: '超出 100MB'});
+      continue;
+    }
+    validFiles.push(f);
+  }
+
+  if (skipped.length) {
+    document.getElementById('secVlog').style.display = '';
+    skipped.forEach(s => {
+      const d = document.createElement('div');
+      d.className = 'vlog-item';
+      d.textContent = `✕ ${s.rel}  (${s.reason})`;
+      vlogEl.appendChild(d);
+    });
+  }
+
+  if (!validFiles.length) { toast('没有可上传的文件', 'err'); return; }
+
+  // 元信息
+  const firstRel  = validFiles[0].webkitRelativePath || validFiles[0]._rel || validFiles[0].name;
+  const folderName = firstRel.split('/')[0];
+  totalBytes       = validFiles.reduce((s, f) => s + f.size, 0);
+
+  document.getElementById('mName').textContent  = folderName;
+  document.getElementById('mCount').textContent = validFiles.length + (skipped.length ? ` (+${skipped.length} 跳过)` : '');
+  document.getElementById('mSize').textContent  = fmtSz(totalBytes);
+  document.getElementById('secMeta').style.display = '';
+
+  buildFL();
+  document.getElementById('secFL').style.display   = '';
+  document.getElementById('secProg').style.display  = '';
+  document.getElementById('pgTotal').textContent    = validFiles.length;
+
+  $bUp.disabled = false;
+  $bRst.disabled = false;
+}
+
+function buildFL() {
+  $fl.innerHTML = '';
+  validFiles.forEach((f, i) => {
+    const rel  = f.webkitRelativePath || f._rel || f.name;
+    const name = rel.split('/').pop();
+    const row  = document.createElement('div');
+    row.className = 'fi'; row.id = `fi-${i}`;
+    row.innerHTML = `
+      <div class="fi-dot" id="d-${i}"></div>
+      <div class="fi-name" title="${rel}">${name}</div>
+      <div class="fi-size">${fmtSz(f.size)}</div>
+      <div class="fi-bar"><div class="fi-bar-f" id="fb-${i}"></div></div>`;
+    $fl.appendChild(row);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  上传流程
+// ═══════════════════════════════════════════════════════════
+$bUp.addEventListener('click', startUpload);
+
+async function startUpload() {
+  if (uploading || !validFiles.length) return;
+  uploading = true; cancelled = false;
+  doneCount = 0; instantCount = 0; qIdx = 0;
+  bytesDone = 0; startTime = Date.now();
+
+  $bUp.disabled = true; $bRst.disabled = true; $bCan.disabled = false;
+
+  // 1. init
+  const folderName = (validFiles[0].webkitRelativePath || validFiles[0]._rel || validFiles[0].name).split('/')[0];
+  try {
+    const r = await api('/init', 'POST', {folderName});
+    sessionId = r.data.sessionId;
+    $sbSess.textContent = 'SESSION: ' + sessionId;
+    toast('会话已创建', 'info');
+  } catch(e) { toast('初始化失败: ' + e.message, 'err'); resetState(); return; }
+
+  // 2. 并发 worker
+  const workers = [];
+  for (let i = 0; i < Math.min(CONC, validFiles.length); i++) workers.push(worker());
+  await Promise.all(workers);
+
+  if (!cancelled) {
+    setBar(100, true);
+    document.getElementById('pgLbl').textContent = '上传完成';
+    toast('全部完成！秒传 ' + instantCount + ' 个', 'ok');
+    loadTree();
+    loadFileUrls(); // 加载文件URL列表
+  }
+  uploading = false;
+  $bCan.disabled = true; $bRst.disabled = false;
+}
+
+async function worker() {
+  while (true) {
+    const idx = qIdx++;
+    if (idx >= validFiles.length || cancelled) break;
+    await uploadOne(validFiles[idx], idx);
+  }
+}
+
+async function uploadOne(file, idx) {
+  setDot(idx, 'up');
+  const rel = file.webkitRelativePath || file._rel || file.name;
+
+  // ── 计算 MD5 ──
+  let md5 = '';
+  try {
+    md5 = await calcMd5(file);
+  } catch(e) { /* 跳过 md5，直接上传 */ }
+
+  // ── 秒传检查 ──
+  if (md5) {
+    try {
+      const ck = await api('/check', 'POST', {md5, sessionId, relativePath: rel});
+      if (ck.data && ck.data.instant) {
+        setDot(idx, 'instant');
+        fbar(idx, 100, 'instant');
+        doneCount++; instantCount++; bytesDone += file.size;
+        updateOverall();
+        return;
+      }
+    } catch(e) { /* 秒传失败则继续正常上传 */ }
+  }
+
+  // ── 正常上传 ──
+  const form = new FormData();
+  form.append('sessionId',    sessionId);
+  form.append('relativePath', rel);
+  form.append('file',         file);
+
+  try {
+    await new Promise((res, rej) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', API + '/file');
+      xhr.upload.onprogress = e => {
+        if (e.lengthComputable) fbar(idx, Math.round(e.loaded / e.total * 100), '');
+      };
+      xhr.onload = () => {
+        try {
+          const r = JSON.parse(xhr.responseText);
+          r.success ? res() : rej(new Error(r.message));
+        } catch(e) { rej(e); }
+      };
+      xhr.onerror = () => rej(new Error('网络错误'));
+      xhr.send(form);
+    });
+    setDot(idx, 'ok');
+    fbar(idx, 100, 'ok');
+    bytesDone += file.size;
+  } catch(e) {
+    setDot(idx, 'err');
+    fbar(idx, 100, 'err');
+    console.error('upload fail:', rel, e);
+  }
+
+  doneCount++;
+  updateOverall();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  进度更新
+// ═══════════════════════════════════════════════════════════
+function updateOverall() {
+  const pct = validFiles.length ? Math.round(doneCount / validFiles.length * 100) : 0;
+  setBar(pct, false);
+  document.getElementById('pgDone').textContent  = doneCount;
+  document.getElementById('pgInst').textContent  = instantCount + ' 秒传';
+
+  const elapsed = (Date.now() - startTime) / 1000 || 0.001;
+  const speed   = bytesDone / elapsed;
+  const remain  = totalBytes - bytesDone;
+  const eta     = speed > 0 ? remain / speed : 0;
+
+  document.getElementById('pgSpeed').textContent = fmtSz(speed) + '/s';
+  document.getElementById('pgEta').textContent   = eta > 0 ? fmtT(eta) : '—';
+}
+
+function setBar(pct, done) {
+  document.getElementById('pgPct').textContent = pct + '%';
+  const b = document.getElementById('pgBar');
+  b.style.width = pct + '%';
+  if (done) b.classList.add('ok');
+}
+
+// ═══════════════════════════════════════════════════════════
+//  取消 / 重置
+// ═══════════════════════════════════════════════════════════
+$bCan.addEventListener('click', async () => {
+  if (!uploading) return;
+  cancelled = true;
+  toast('正在取消并清理 OSS...', 'info');
+  if (sessionId) {
+    try { await api('/session/' + sessionId, 'DELETE'); } catch(e) {}
+    sessionId = null; $sbSess.textContent = 'SESSION: —';
+  }
+  toast('已取消', 'info');
+  resetState();
+});
+
+$bRst.addEventListener('click', () => {
+  if (uploading) return;
+  allFiles = []; validFiles = []; sessionId = null; qIdx = 0;
+  ['secMeta','secVlog','secFL','secProg','secUrls'].forEach(id => document.getElementById(id).style.display = 'none');
+  $fl.innerHTML = ''; $fi.value = ''; document.getElementById('urlList').innerHTML = ''; allFileUrls = [];
+  $bUp.disabled = true; $bRst.disabled = true;
+  $sbSess.textContent = 'SESSION: —';
+  document.getElementById('treeEmpty').style.display = '';
+  document.getElementById('treeRoot').style.display  = 'none';
+  document.getElementById('treeRoot').innerHTML      = '';
+  setBar(0, false);
+  document.getElementById('pgBar').classList.remove('ok');
+  document.getElementById('pgLbl').textContent = '上传中';
+});
+
+function resetState() {
+  uploading = false; qIdx = 0;
+  $bUp.disabled = false; $bRst.disabled = false; $bCan.disabled = true;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  目录树
+// ═══════════════════════════════════════════════════════════
+async function loadTree() {
+  try {
+    const r = await api('/tree/' + sessionId, 'GET');
+    document.getElementById('treeEmpty').style.display = 'none';
+    const $t = document.getElementById('treeRoot');
+    $t.style.display = 'block'; $t.innerHTML = '';
+    // root 节点的 children 就是顶层内容
+    const children = r.data.children || [];
+    children.forEach(c => $t.appendChild(renderNode(c, 0)));
+  } catch(e) { toast('加载目录树失败', 'err'); }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  文件URL列表
+// ═══════════════════════════════════════════════════════════
+let allFileUrls = [];
+
+async function loadFileUrls() {
+  try {
+    const r = await api('/files/' + sessionId, 'GET');
+    allFileUrls = r.data || [];
+    if (allFileUrls.length > 0) {
+      document.getElementById('secUrls').style.display = '';
+      renderUrlList();
+    }
+  } catch(e) { console.error('加载文件URL失败', e); }
+}
+
+function renderUrlList() {
+  const $ul = document.getElementById('urlList');
+  $ul.innerHTML = '';
+  allFileUrls.forEach((f, i) => {
+    const item = document.createElement('div');
+    item.className = 'url-item';
+    item.innerHTML = `
+      <input type="text" value="${f.url}" readonly>
+      <button class="copy-btn" data-url="${f.url}">复制</button>`;
+    $ul.appendChild(item);
+  });
+
+  // 复制单个
+  $ul.querySelectorAll('.copy-btn').forEach(btn => {
+    btn.onclick = () => {
+      navigator.clipboard.writeText(btn.dataset.url);
+      toast('已复制', 'ok');
+    };
+  });
+
+  // 复制全部按钮
+  document.getElementById('bCopyAll').onclick = () => {
+    const urls = allFileUrls.map(f => f.url).join('\n');
+    navigator.clipboard.writeText(urls);
+    toast('已复制全部URL', 'ok');
+  };
+}
+
+function renderNode(node, depth) {
+  const wrap = document.createElement('div');
+  const row  = document.createElement('div');
+  row.className = 'tn-row';
+
+  // 缩进
+  for (let i = 0; i < depth; i++) {
+    const sp = document.createElement('span');
+    sp.style.cssText = 'display:inline-block;width:16px;flex-shrink:0';
+    row.appendChild(sp);
+  }
+
+  // 图标
+  const ic = document.createElement('span');
+  ic.style.cssText = 'width:14px;flex-shrink:0;display:inline-flex';
+  ic.innerHTML = node.isDir
+    ? `<svg viewBox="0 0 16 16" fill="none" stroke="#3b82f6" stroke-width="1.4"><path d="M1.5 4h4.5l1.5 1.5h7V13h-13z"/></svg>`
+    : `<svg viewBox="0 0 16 16" fill="none" stroke="#4a5370" stroke-width="1.4"><rect x="3" y="1.5" width="10" height="13" rx="1"/><path d="M5.5 5h5M5.5 7.5h5M5.5 10h3"/></svg>`;
+  row.appendChild(ic);
+
+  const nm = document.createElement('span');
+  nm.className = 'tn-name' + (node.isDir ? ' dir' : '');
+  nm.textContent = node.name;
+  row.appendChild(nm);
+
+  if (!node.isDir) {
+    const sz = document.createElement('span');
+    sz.className = 'tn-sz';
+    sz.textContent = fmtSz(node.size || 0);
+    row.appendChild(sz);
+  }
+
+  wrap.appendChild(row);
+  if (node.isDir && node.children) {
+    node.children.forEach(c => wrap.appendChild(renderNode(c, depth + 1)));
+  }
+  return wrap;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MD5 计算（SparkMD5）
+// ═══════════════════════════════════════════════════════════
+function calcMd5(file) {
+  return new Promise((res, rej) => {
+    const spark  = new SparkMD5.ArrayBuffer();
+    const reader = new FileReader();
+    reader.onload  = e => { spark.append(e.target.result); res(spark.end()); };
+    reader.onerror = () => rej(new Error('md5 read error'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════
+//  工具
+// ═══════════════════════════════════════════════════════════
+function fmtSz(b) {
+  if (b < 1024)     return b + ' B';
+  if (b < 1<<20)    return (b/(1<<10)).toFixed(1) + ' KB';
+  if (b < 1<<30)    return (b/(1<<20)).toFixed(1) + ' MB';
+  return (b/(1<<30)).toFixed(2) + ' GB';
+}
+function fmtT(s) {
+  if (s < 60)   return Math.round(s) + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm' + Math.round(s%60) + 's';
+  return Math.floor(s/3600) + 'h' + Math.floor((s%3600)/60) + 'm';
+}
+function setDot(i, cls)  { const d=document.getElementById('d-'+i);  if(d) d.className='fi-dot '+cls; }
+function fbar(i, pct, cls) {
+  const b=document.getElementById('fb-'+i);
+  if(b){ b.style.width=pct+'%'; if(cls) b.classList.add(cls); }
+}
+async function api(path, method, body) {
+  const opt = {method, headers:{'Content-Type':'application/json'}};
+  if (body) opt.body = JSON.stringify(body);
+  const r = await fetch(API + path, opt);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+function toast(msg, type='info') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.getElementById('toasts').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+</body>
+</html>

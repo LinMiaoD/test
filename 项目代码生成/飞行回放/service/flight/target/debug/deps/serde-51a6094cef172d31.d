@@ -1,0 +1,12 @@
+C:\Users\Administrator\Desktop\学习资料\learning-notes-programming\项目代码生成\飞行回放\service\flight\target\debug\deps\serde-51a6094cef172d31.d: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Administrator\Desktop\学习资料\learning-notes-programming\项目代码生成\飞行回放\service\flight\target\debug\build\serde-9b76ea22f6fba3a5\out/private.rs
+
+C:\Users\Administrator\Desktop\学习资料\learning-notes-programming\项目代码生成\飞行回放\service\flight\target\debug\deps\libserde-51a6094cef172d31.rmeta: C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs C:\Users\Administrator\Desktop\学习资料\learning-notes-programming\项目代码生成\飞行回放\service\flight\target\debug\build\serde-9b76ea22f6fba3a5\out/private.rs
+
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\lib.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\integer128.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\mod.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\de.rs:
+C:\Users\Administrator\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\serde-1.0.228\src\private\ser.rs:
+C:\Users\Administrator\Desktop\学习资料\learning-notes-programming\项目代码生成\飞行回放\service\flight\target\debug\build\serde-9b76ea22f6fba3a5\out/private.rs:
+
+# env-dep:OUT_DIR=C:\\Users\\Administrator\\Desktop\\学习资料\\learning-notes-programming\\项目代码生成\\飞行回放\\service\\flight\\target\\debug\\build\\serde-9b76ea22f6fba3a5\\out

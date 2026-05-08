@@ -1,0 +1,772 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>文件夹上传</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+SC:wght@300;400;500&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:       #0d0f14;
+  --surface:  #141720;
+  --border:   #242835;
+  --border2:  #2e3447;
+  --text:     #c8cdd8;
+  --muted:    #565e72;
+  --accent:   #4f8ef7;
+  --accent2:  #38d9a9;
+  --warn:     #ffa94d;
+  --danger:   #f03e3e;
+  --success:  #38d9a9;
+  --mono:     'IBM Plex Mono', monospace;
+  --sans:     'IBM Plex Sans SC', sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-weight: 300;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 顶栏 ── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 0 32px;
+  height: 52px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  background: var(--accent);
+  clip-path: polygon(0 0, 100% 0, 100% 70%, 70% 100%, 0 100%);
+  flex-shrink: 0;
+}
+header h1 {
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: .08em;
+  color: var(--text);
+  font-family: var(--mono);
+}
+.header-tag {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  letter-spacing: .06em;
+}
+
+/* ── 主体布局 ── */
+.layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 0;
+}
+
+/* ── 左面板 ── */
+.panel-left {
+  border-right: 1px solid var(--border);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--muted);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* ── 拖拽区 ── */
+.drop-zone {
+  border: 1px dashed var(--border2);
+  border-radius: 4px;
+  padding: 36px 24px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+  background: rgba(79,142,247,.02);
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: rgba(79,142,247,.06);
+}
+.drop-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.drop-icon {
+  width: 44px; height: 44px; margin: 0 auto 14px;
+  display: grid; place-items: center;
+}
+.drop-icon svg { color: var(--accent); opacity: .7; }
+.drop-title { font-size: 14px; color: var(--text); margin-bottom: 6px; }
+.drop-sub {
+  font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.6;
+}
+
+/* ── 文件夹信息卡 ── */
+.folder-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 14px 16px;
+  display: none;
+}
+.folder-card.show { display: block; }
+.folder-meta { display: flex; gap: 20px; flex-wrap: wrap; }
+.meta-item { display: flex; flex-direction: column; gap: 3px; }
+.meta-key { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: .08em; }
+.meta-val { font-family: var(--mono); font-size: 13px; color: var(--accent2); }
+
+/* ── 进度区 ── */
+.progress-block { display: none; }
+.progress-block.show { display: block; }
+
+.overall-progress {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.prog-header {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 10px;
+}
+.prog-label { font-size: 12px; color: var(--text); }
+.prog-pct {
+  font-family: var(--mono); font-size: 20px; font-weight: 500;
+  color: var(--accent);
+}
+.bar-track {
+  height: 3px; background: var(--border2); border-radius: 2px; overflow: hidden;
+}
+.bar-fill {
+  height: 100%; background: var(--accent); border-radius: 2px;
+  transition: width .3s ease; width: 0%;
+}
+.bar-fill.success { background: var(--success); }
+.prog-stats {
+  margin-top: 8px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+  display: flex; gap: 14px;
+}
+
+/* ── 文件列表 ── */
+.file-list-wrap {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+.file-list-wrap::-webkit-scrollbar { width: 4px; }
+.file-list-wrap::-webkit-scrollbar-track { background: var(--bg); }
+.file-list-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.file-item {
+  display: grid;
+  grid-template-columns: 16px 1fr 72px 80px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.file-item:last-child { border-bottom: none; }
+.file-status-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--border2); flex-shrink: 0;
+}
+.file-status-dot.pending  { background: var(--border2); }
+.file-status-dot.uploading { background: var(--accent); box-shadow: 0 0 6px var(--accent); animation: pulse .8s infinite; }
+.file-status-dot.done     { background: var(--success); }
+.file-status-dot.error    { background: var(--danger); }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
+
+.file-name {
+  font-family: var(--mono); font-size: 11px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.file-size { font-family: var(--mono); font-size: 11px; color: var(--muted); text-align: right; }
+.file-pct-wrap { position: relative; }
+.file-bar-track { height: 2px; background: var(--border2); border-radius: 1px; overflow: hidden; }
+.file-bar-fill  { height: 100%; background: var(--accent); width: 0%; transition: width .2s; }
+.file-bar-fill.done { background: var(--success); }
+.file-bar-fill.error { background: var(--danger); }
+
+/* ── 按钮 ── */
+.btn-row { display: flex; gap: 10px; }
+.btn {
+  flex: 1; height: 40px; border: none; border-radius: 3px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: .06em;
+  cursor: pointer; transition: all .15s;
+}
+.btn-primary {
+  background: var(--accent); color: #fff;
+}
+.btn-primary:hover { background: #6aa0f8; }
+.btn-primary:disabled { background: var(--border2); color: var(--muted); cursor: not-allowed; }
+.btn-ghost {
+  background: transparent; color: var(--muted);
+  border: 1px solid var(--border2);
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-ghost:disabled { opacity: .4; cursor: not-allowed; }
+.btn-danger {
+  background: transparent; color: var(--danger);
+  border: 1px solid rgba(240,62,62,.3);
+}
+.btn-danger:hover { background: rgba(240,62,62,.1); }
+
+/* ── 右面板：目录树 ── */
+.panel-right {
+  padding: 28px 24px;
+  overflow-y: auto;
+}
+.tree-placeholder {
+  height: 100%;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 12px; color: var(--muted);
+}
+.tree-placeholder svg { opacity: .2; }
+.tree-placeholder p { font-family: var(--mono); font-size: 12px; }
+
+.tree-root { font-family: var(--mono); font-size: 12px; }
+.tree-node { user-select: none; }
+.tree-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 3px 6px; border-radius: 3px; cursor: default;
+  transition: background .1s;
+}
+.tree-row:hover { background: rgba(79,142,247,.08); }
+.tree-indent { display: inline-block; width: 16px; flex-shrink: 0; }
+.tree-icon { width: 14px; flex-shrink: 0; }
+.tree-name { color: var(--text); }
+.tree-name.is-dir { color: var(--accent); }
+.tree-size { margin-left: auto; color: var(--muted); font-size: 10px; }
+
+/* ── 状态栏 ── */
+.statusbar {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  padding: 0 20px;
+  height: 28px;
+  display: flex; align-items: center; gap: 20px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted);
+}
+.status-item { display: flex; align-items: center; gap: 6px; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); }
+.status-dot.active { background: var(--success); box-shadow: 0 0 4px var(--success); }
+
+/* ── Toast ── */
+.toast-wrap {
+  position: fixed; bottom: 40px; right: 24px;
+  display: flex; flex-direction: column; gap: 8px; z-index: 999;
+}
+.toast {
+  background: var(--surface); border: 1px solid var(--border2);
+  border-radius: 4px; padding: 10px 16px;
+  font-family: var(--mono); font-size: 12px;
+  animation: slideIn .2s ease;
+  max-width: 320px;
+}
+.toast.success { border-left: 3px solid var(--success); color: var(--success); }
+.toast.error   { border-left: 3px solid var(--danger);  color: var(--danger);  }
+.toast.info    { border-left: 3px solid var(--accent);  color: var(--accent);  }
+@keyframes slideIn { from { opacity:0; transform:translateX(20px); } to { opacity:1; transform:none; } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo-mark"></div>
+  <h1>FOLDER_UPLOAD</h1>
+  <span class="header-tag">v1.0 · SpringBoot 2.4</span>
+</header>
+
+<div class="layout">
+
+  <!-- ── 左面板 ── -->
+  <div class="panel-left">
+
+    <div>
+      <div class="section-label">选择文件夹</div>
+      <div class="drop-zone" id="dropZone">
+        <input type="file" id="folderInput" webkitdirectory multiple>
+        <div class="drop-icon">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7Z"/>
+            <path d="M12 12v5M9.5 14.5 12 12l2.5 2.5"/>
+          </svg>
+        </div>
+        <div class="drop-title">拖拽文件夹到此处，或点击选择</div>
+        <div class="drop-sub">支持整个文件夹上传，保留目录结构<br>单文件最大 500MB · 并发上传</div>
+      </div>
+    </div>
+
+    <!-- 文件夹信息 -->
+    <div class="folder-card" id="folderCard">
+      <div class="section-label" style="margin-bottom:10px">文件夹信息</div>
+      <div class="folder-meta">
+        <div class="meta-item">
+          <span class="meta-key">NAME</span>
+          <span class="meta-val" id="metaName">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-key">FILES</span>
+          <span class="meta-val" id="metaCount">—</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-key">SIZE</span>
+          <span class="meta-val" id="metaSize">—</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 进度 -->
+    <div class="progress-block" id="progressBlock">
+      <div class="section-label">上传进度</div>
+
+      <!-- 整体进度 -->
+      <div class="overall-progress">
+        <div class="prog-header">
+          <span class="prog-label">整体进度</span>
+          <span class="prog-pct" id="overallPct">0%</span>
+        </div>
+        <div class="bar-track"><div class="bar-fill" id="overallBar"></div></div>
+        <div class="prog-stats">
+          <span id="statDone">0</span>/<span id="statTotal">0</span> 文件
+          <span>·</span>
+          <span id="statSpeed">—</span>
+          <span>·</span>
+          <span id="statEta">—</span>
+        </div>
+      </div>
+
+      <!-- 文件列表 -->
+      <div class="file-list-wrap" id="fileList"></div>
+    </div>
+
+    <!-- 按钮 -->
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnUpload" disabled>开始上传</button>
+      <button class="btn btn-ghost"   id="btnClear"  disabled>重置</button>
+      <button class="btn btn-danger"  id="btnCancel" disabled style="flex:0;padding:0 16px">取消</button>
+    </div>
+
+  </div>
+
+  <!-- ── 右面板：目录树 ── -->
+  <div class="panel-right" id="panelRight">
+    <div class="section-label">上传结果 · 目录树</div>
+    <div class="tree-placeholder" id="treePlaceholder">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+        <rect x="2" y="3" width="20" height="18" rx="2"/>
+        <path d="M8 7h8M8 11h8M8 15h4"/>
+      </svg>
+      <p>上传完成后显示目录树</p>
+    </div>
+    <div class="tree-root" id="treeRoot" style="display:none"></div>
+  </div>
+
+</div>
+
+<!-- 状态栏 -->
+<div class="statusbar">
+  <div class="status-item">
+    <div class="status-dot active"></div>
+    <span>后端 http://localhost:8080</span>
+  </div>
+  <div class="status-item">
+    <span id="sbSession">SESSION: —</span>
+  </div>
+  <div class="status-item" style="margin-left:auto">
+    <span id="sbTime">—</span>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+// ── 配置 ──────────────────────────────────────────────────
+const API_BASE    = 'http://localhost:8080/api/upload';
+const CONCURRENCY = 4;   // 并发上传数
+
+// ── 状态 ──────────────────────────────────────────────────
+let allFiles      = [];     // File[]
+let sessionId     = null;
+let uploading     = false;
+let cancelled     = false;
+let startTime     = 0;
+let bytesUploaded = 0;
+let totalBytes    = 0;
+let doneCount     = 0;
+
+// ── DOM ───────────────────────────────────────────────────
+const $drop     = document.getElementById('dropZone');
+const $input    = document.getElementById('folderInput');
+const $card     = document.getElementById('folderCard');
+const $progress = document.getElementById('progressBlock');
+const $fileList = document.getElementById('fileList');
+const $btnUp    = document.getElementById('btnUpload');
+const $btnCl    = document.getElementById('btnClear');
+const $btnCan   = document.getElementById('btnCancel');
+const $sbSess   = document.getElementById('sbSession');
+const $sbTime   = document.getElementById('sbTime');
+
+// ── 状态栏时钟 ───────────────────────────────────────────
+setInterval(() => {
+  $sbTime.textContent = new Date().toLocaleTimeString('zh-CN', {hour12: false});
+}, 1000);
+
+// ── 拖拽 ──────────────────────────────────────────────────
+$drop.addEventListener('dragover', e => { e.preventDefault(); $drop.classList.add('drag-over'); });
+$drop.addEventListener('dragleave', ()=> $drop.classList.remove('drag-over'));
+$drop.addEventListener('drop', e => {
+  e.preventDefault(); $drop.classList.remove('drag-over');
+  const items = [...e.dataTransfer.items];
+  collectFromDataTransfer(items);
+});
+
+$input.addEventListener('change', () => {
+  allFiles = [...$input.files];
+  onFilesReady();
+});
+
+async function collectFromDataTransfer(items) {
+  const files = [];
+  const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+  for (const entry of entries) {
+    await readEntry(entry, '', files);
+  }
+  if (files.length) { allFiles = files; onFilesReady(); }
+}
+
+function readEntry(entry, path, files) {
+  return new Promise(resolve => {
+    if (entry.isFile) {
+      entry.file(f => {
+        f._relativePath = (path ? path + '/' : '') + f.name;
+        files.push(f); resolve();
+      });
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      const readAll = (cb) => {
+        reader.readEntries(async entries => {
+          if (!entries.length) return cb();
+          for (const e of entries) await readEntry(e, (path ? path + '/' : '') + entry.name, files);
+          readAll(cb);
+        });
+      };
+      readAll(resolve);
+    }
+  });
+}
+
+// ── 文件选择处理 ─────────────────────────────────────────
+function onFilesReady() {
+  if (!allFiles.length) return;
+  const total = allFiles.length;
+  totalBytes  = allFiles.reduce((s, f) => s + f.size, 0);
+
+  // 推断文件夹名
+  const firstPath = allFiles[0].webkitRelativePath || allFiles[0]._relativePath || allFiles[0].name;
+  const folderName = firstPath.split('/')[0] || 'upload';
+
+  document.getElementById('metaName').textContent  = folderName;
+  document.getElementById('metaCount').textContent = total + ' 个文件';
+  document.getElementById('metaSize').textContent  = fmtSize(totalBytes);
+  $card.classList.add('show');
+
+  $btnUp.disabled = false;
+  $btnCl.disabled = false;
+
+  // 建文件列表 UI
+  buildFileListUI();
+}
+
+function buildFileListUI() {
+  $fileList.innerHTML = '';
+  allFiles.forEach((f, idx) => {
+    const path = f.webkitRelativePath || f._relativePath || f.name;
+    const name = path.split('/').pop();
+    const row  = document.createElement('div');
+    row.className = 'file-item';
+    row.id = `fi-${idx}`;
+    row.innerHTML = `
+      <div class="file-status-dot pending" id="dot-${idx}"></div>
+      <div class="file-name" title="${path}">${name}</div>
+      <div class="file-size">${fmtSize(f.size)}</div>
+      <div class="file-pct-wrap">
+        <div class="file-bar-track"><div class="file-bar-fill" id="fbar-${idx}"></div></div>
+      </div>`;
+    $fileList.appendChild(row);
+  });
+  document.getElementById('statTotal').textContent = allFiles.length;
+  $progress.classList.add('show');
+}
+
+// ── 开始上传 ─────────────────────────────────────────────
+$btnUp.addEventListener('click', startUpload);
+
+async function startUpload() {
+  if (uploading || !allFiles.length) return;
+
+  uploading  = true; cancelled = false;
+  bytesUploaded = 0; doneCount = 0;
+  startTime  = Date.now();
+
+  $btnUp.disabled  = true;
+  $btnCl.disabled  = true;
+  $btnCan.disabled = false;
+
+  // 1. init session
+  const folderName = (allFiles[0].webkitRelativePath || allFiles[0]._relativePath || allFiles[0].name).split('/')[0];
+  try {
+    const res  = await fetchJSON('/init', 'POST', {folderName});
+    sessionId  = res.data.sessionId;
+    $sbSess.textContent = 'SESSION: ' + sessionId;
+    toast('会话创建成功', 'info');
+  } catch(e) {
+    toast('初始化失败: ' + e.message, 'error');
+    resetState(); return;
+  }
+
+  // 2. 并发上传
+  const queue  = allFiles.map((f, i) => ({file: f, idx: i}));
+  const workers = [];
+  for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+    workers.push(runWorker(queue));
+  }
+  await Promise.all(workers);
+
+  if (!cancelled) {
+    setOverallBar(100, true);
+    toast('全部上传完成！', 'success');
+    loadTree();
+  }
+  uploading = false;
+  $btnCan.disabled = true;
+  $btnCl.disabled  = false;
+}
+
+let queueIndex = 0;
+async function runWorker(queue) {
+  while (true) {
+    const item = queue[queueIndex++];
+    if (!item || cancelled) break;
+    await uploadOne(item.file, item.idx);
+  }
+}
+
+async function uploadOne(file, idx) {
+  setDot(idx, 'uploading');
+  const path = file.webkitRelativePath || file._relativePath || file.name;
+
+  const form = new FormData();
+  form.append('sessionId',    sessionId);
+  form.append('relativePath', path);
+  form.append('file',         file);
+
+  try {
+    await new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', API_BASE + '/file');
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable) {
+          const pct = Math.round(e.loaded / e.total * 100);
+          document.getElementById(`fbar-${idx}`).style.width = pct + '%';
+        }
+      };
+      xhr.onload = () => {
+        try {
+          const r = JSON.parse(xhr.responseText);
+          if (r.success) {
+            bytesUploaded += file.size;
+            doneCount++;
+            resolve();
+          } else reject(new Error(r.message));
+        } catch(e) { reject(e); }
+      };
+      xhr.onerror = () => reject(new Error('网络错误'));
+      xhr.send(form);
+    });
+    setDot(idx, 'done');
+    document.getElementById(`fbar-${idx}`).classList.add('done');
+  } catch(e) {
+    setDot(idx, 'error');
+    document.getElementById(`fbar-${idx}`).classList.add('error');
+    console.error('upload failed:', path, e);
+  }
+
+  updateOverall();
+}
+
+// ── 整体进度更新 ─────────────────────────────────────────
+function updateOverall() {
+  const pct = allFiles.length ? Math.round(doneCount / allFiles.length * 100) : 0;
+  setOverallBar(pct, false);
+  document.getElementById('statDone').textContent = doneCount;
+
+  const elapsed = (Date.now() - startTime) / 1000;
+  const speed   = elapsed > 0 ? bytesUploaded / elapsed : 0;
+  const remain  = totalBytes - bytesUploaded;
+  const eta     = speed > 0 ? remain / speed : 0;
+
+  document.getElementById('statSpeed').textContent = fmtSize(speed) + '/s';
+  document.getElementById('statEta').textContent   = eta > 0 ? fmtTime(eta) : '—';
+}
+
+function setOverallBar(pct, done) {
+  document.getElementById('overallPct').textContent = pct + '%';
+  const bar = document.getElementById('overallBar');
+  bar.style.width = pct + '%';
+  if (done) bar.classList.add('success');
+}
+
+// ── 取消 ─────────────────────────────────────────────────
+$btnCan.addEventListener('click', async () => {
+  if (!uploading) return;
+  cancelled = true;
+  toast('上传已取消', 'info');
+  if (sessionId) {
+    try { await fetchJSON('/session/' + sessionId, 'DELETE'); } catch(e) {}
+    sessionId = null; $sbSess.textContent = 'SESSION: —';
+  }
+  resetState();
+});
+
+// ── 重置 ─────────────────────────────────────────────────
+$btnCl.addEventListener('click', () => {
+  if (uploading) return;
+  allFiles = []; sessionId = null; queueIndex = 0;
+  $card.classList.remove('show');
+  $progress.classList.remove('show');
+  $fileList.innerHTML = '';
+  $input.value = '';
+  $btnUp.disabled = true; $btnCl.disabled = true;
+  $sbSess.textContent = 'SESSION: —';
+  document.getElementById('treePlaceholder').style.display = '';
+  document.getElementById('treeRoot').style.display = 'none';
+  document.getElementById('treeRoot').innerHTML = '';
+  setOverallBar(0, false);
+  document.getElementById('overallBar').classList.remove('success');
+});
+
+function resetState() {
+  uploading = false; queueIndex = 0;
+  $btnUp.disabled  = false;
+  $btnCl.disabled  = false;
+  $btnCan.disabled = true;
+}
+
+// ── 目录树 ───────────────────────────────────────────────
+async function loadTree() {
+  try {
+    const res = await fetchJSON('/tree/' + sessionId, 'GET');
+    document.getElementById('treePlaceholder').style.display = 'none';
+    const $tree = document.getElementById('treeRoot');
+    $tree.style.display = 'block';
+    $tree.innerHTML = '';
+    $tree.appendChild(renderTree(res.data, 0));
+  } catch(e) {
+    toast('加载目录树失败', 'error');
+  }
+}
+
+function renderTree(node, depth) {
+  const wrap = document.createElement('div');
+  wrap.className = 'tree-node';
+
+  const row = document.createElement('div');
+  row.className = 'tree-row';
+
+  // 缩进
+  for (let i = 0; i < depth; i++) {
+    const ind = document.createElement('span');
+    ind.className = 'tree-indent';
+    row.appendChild(ind);
+  }
+
+  // 图标
+  const icon = document.createElement('span');
+  icon.className = 'tree-icon';
+  icon.innerHTML = node.isDir
+    ? `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color:#4f8ef7"><path d="M1.5 3.5h4l1.5 1.5h7.5v8H1.5z"/></svg>`
+    : `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" style="color:#565e72"><rect x="2.5" y="1.5" width="11" height="13" rx="1"/><path d="M5 5.5h6M5 8h6M5 10.5h4"/></svg>`;
+  row.appendChild(icon);
+
+  // 名称
+  const name = document.createElement('span');
+  name.className = 'tree-name' + (node.isDir ? ' is-dir' : '');
+  name.textContent = node.name;
+  row.appendChild(name);
+
+  // 大小
+  if (!node.isDir) {
+    const sz = document.createElement('span');
+    sz.className = 'tree-size';
+    sz.textContent = fmtSize(node.size);
+    row.appendChild(sz);
+  }
+
+  wrap.appendChild(row);
+
+  if (node.isDir && node.children) {
+    node.children.forEach(child => wrap.appendChild(renderTree(child, depth + 1)));
+  }
+  return wrap;
+}
+
+// ── 工具函数 ─────────────────────────────────────────────
+function fmtSize(bytes) {
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1024**2)    return (bytes/1024).toFixed(1) + ' KB';
+  if (bytes < 1024**3)    return (bytes/1024**2).toFixed(1) + ' MB';
+  return (bytes/1024**3).toFixed(2) + ' GB';
+}
+function fmtTime(secs) {
+  if (secs < 60)  return Math.round(secs) + 's';
+  if (secs < 3600) return Math.floor(secs/60) + 'm ' + Math.round(secs%60) + 's';
+  return Math.floor(secs/3600) + 'h ' + Math.floor((secs%3600)/60) + 'm';
+}
+function setDot(idx, state) {
+  const d = document.getElementById('dot-' + idx);
+  if (d) d.className = 'file-status-dot ' + state;
+}
+async function fetchJSON(path, method, body) {
+  const opts = { method, headers: {'Content-Type': 'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(API_BASE + path, opts);
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  return r.json();
+}
+function toast(msg, type='info') {
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  document.getElementById('toastWrap').appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+</script>
+</body>
+</html>

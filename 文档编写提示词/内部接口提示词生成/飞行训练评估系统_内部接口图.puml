@@ -1,0 +1,139 @@
+@startuml 飞行训练评估系统_内部接口示意图
+
+' ============================================================
+' 飞行训练评估系统 - 内部接口示意图（PlantUML 完整提示词）
+' ============================================================
+
+title 飞行训练评估系统 - 内部接口示意图
+
+' ==================== 全局样式设置 ====================
+skinparam linetype ortho
+skinparam defaultFontName "Microsoft YaHei"
+skinparam defaultFontSize 10
+skinparam nodesep 50
+skinparam ranksep 40
+skinparam backgroundColor #FFFFFF
+
+skinparam rectangle {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    FontSize 10
+    RoundCorner 5
+}
+
+skinparam database {
+    BackgroundColor #FFFFFF
+    BorderColor #000000
+    FontSize 10
+}
+
+skinparam note {
+    BackgroundColor #FAFAFA
+    BorderColor #181818
+    FontSize 13
+}
+
+skinparam legend {
+    BackgroundColor #DDDDDD
+    BorderColor #000000
+    FontSize 14
+}
+
+' ==================== 角色定义 ====================
+actor "外部系统/用户" as external
+
+' ==================== 第一层：数据采集与归档（顶部） ====================
+rectangle "数据归档管理模块" as archive
+rectangle "数据备份恢复模块" as backup
+rectangle "数据接入模块\n(批量上传/计划提取)" as data_input
+
+' ==================== 第二层：核心数据与处理（中上部） ====================
+rectangle "规则库管理模块\n(算法库+规则库)" as rule
+database "数据存储管理模块\n(数据库+文件系统+归档)" as data_storage
+rectangle "数据处理模块\n(解析/清洗/融合)" as data_process
+
+' ==================== 第三层：业务分析与展示（中下部） ====================
+rectangle "风险监测模块" as risk
+rectangle "动作识别模块" as recognition
+rectangle "质量评估模块" as quality
+rectangle "三维复盘模块" as replay
+rectangle "辅助讲评模块" as review
+rectangle "能力画像模块" as portrait
+
+' ==================== 第四层：平台服务（右侧） ====================
+rectangle "接口服务模块\n(WebAPI/SDK)" as api_service
+rectangle "权限管理模块" as auth
+rectangle "系统日志管理模块" as log
+
+' ==================== 注释标注 ====================
+note "外部服务接口\nWebAPI/SDK" as N1
+note "核心数据中心\n集中存储管理" as N2
+note "规则库管理\nPython/GUI编程\n在线测试发布" as N3
+
+N1 .. api_service
+N2 .. data_storage
+N3 .. rule
+
+' ============================================================
+' 接口关系 - 实线箭头：数据传递/调用
+' ============================================================
+
+' --- 外部访问链路 ---
+external --> api_service : 数据查询/调用
+api_service --> auth : 权限验证
+api_service --> log : 日志记录
+api_service --> data_storage : 数据访问
+auth --> data_storage : 权限控制
+
+' --- 数据采集链路 ---
+data_input --> data_process : 原始数据
+data_process --> data_storage : 标准化数据
+
+' --- 业务分析链路（数据存储 <-> 分析模块，双向数据流） ---
+data_storage --> recognition : 处理数据
+recognition --> data_storage : 识别结果
+
+data_storage --> quality : 处理数据
+quality --> data_storage : 评估结果
+
+data_storage --> risk : 处理数据
+risk --> data_storage : 风险信息
+
+' --- 规则支撑链路（规则库 -> 三个分析模块） ---
+rule --> recognition : 规则支撑
+rule --> quality : 规则支撑
+rule --> risk : 规则支撑
+
+' --- 展示应用链路（数据存储 -> 展示模块） ---
+data_storage --> replay : 飞行数据
+data_storage --> review : 评估结果
+data_storage --> portrait : 统计数据
+
+' --- 归档备份链路（双向） ---
+data_storage --> archive : 定期归档
+archive --> data_storage : 归档数据
+
+data_storage --> backup : 数据备份
+backup --> data_storage : 数据恢复
+
+' ============================================================
+' 接口关系 - 虚线箭头：日志记录
+' ============================================================
+data_input ..> log : 操作日志
+data_process ..> log : 处理日志
+recognition ..> log : 识别日志
+quality ..> log : 评估日志
+risk ..> log : 监测日志
+replay ..> log : 访问日志
+review ..> log : 操作日志
+portrait ..> log : 查询日志
+rule ..> log : 规则日志
+
+' ==================== 图例说明 ====================
+legend right
+  **接口说明**
+  实线箭头：数据传递/调用
+  虚线箭头：日志记录
+end legend
+
+@enduml

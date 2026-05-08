@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cd \"C:\\\\Users\\\\Administrator\\\\Desktop\\\\学习资料\\\\learning-notes-programming\\\\项目代码生成\\\\飞行回放\\\\service\\\\flight\" && cargo build 2>&1)",
+      "Bash(cd /c/Users/Administrator/Desktop/学习资料/learning-notes-programming/项目代码生成/飞行回放/service/flight && cargo build 2>&1)",
+      "Bash(cmd.exe:*)",
+      "Bash(cd flight && cargo build 2>&1)",
+      "Bash(cd flight && cargo build 2>&1 && cargo run 2>&1)",
+      "Bash(cargo build 2>&1 && cargo run 2>&1)",
+      "Bash(cargo build:*)",
+      "Bash(cargo run:*)",
+      "Bash(cargo clean && cargo build 2>&1)",
+      "Bash(cargo clean 2>&1 && cargo build -j 1 2>&1)",
+      "Bash(cd \"C:/Users/Administrator/Desktop/学习资料/learning-notes-programming/项目代码生成/飞行回放/service/flight\" && cargo check -j 1 2>&1)",
+      "Bash(powershell:*)",
+      "Bash(cmd:*)",
+      "Bash(cargo check:*)"
+    ]
+  }
+}
